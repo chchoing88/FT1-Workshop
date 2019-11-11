@@ -150,15 +150,14 @@
       
 
       // 시작
+      const wordG = d3.select('svg').append('g')
+                        .attr('id', 'cloudG')
+                        .attr('transform', `translate(${width/2},${height/2})`)
+      const colorScale = d3.scaleSequential(d3.interpolateRainbow).domain([0,16]);
+
       d3.csv("FT1Team.csv", data => data).then(arrData => {
         const resultData = makeCloudData(arrData, DEFAULT_NAME)
 
-        const colorScale = d3.scaleSequential(d3.interpolateRainbow).domain([0,16]);
-        const wordG = d3.select('svg').append('g')
-                        .attr('id', 'cloudG')
-                        .attr('transform', `translate(${width/2},${height/2})`)
-        
-        
         // 버튼의 생성
         d3.select('#controls').selectAll('button')
           .data(Object.keys(FT1_TEAM)).enter()
