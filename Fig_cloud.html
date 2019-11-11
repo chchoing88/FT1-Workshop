@@ -33,6 +33,10 @@
       const width = 1000
       const height = 1000
 
+      /*
+      **  상수 설정 
+      */
+
       const FT1_TEAM = {
         hue: '정현석_hue',
         kerry: 'kerry 유보',
@@ -88,9 +92,14 @@
         summer: REG_SUMMER,
         mason: REG_MASON
       }
+      const DEFAULT_NAME = FT1_TEAM.merlin
       
 
-      // user 의 톡 내용만 찾기
+      /*
+      ** Data 가공 Helper 함수들
+      */
+      
+      // 특정 user 의 톡 내용만 찾기
       function findUserTalk(talkList, user) {
         return talkList.filter(talk => talk.User === user)
       }
@@ -107,8 +116,7 @@
 
       // 이름 별로 count를 증가 시켜줄 수만 있다면...
       function sortByName(talkList) {
-        // console.log('talkList', talkList)
-         return talkList.reduce((result, talk) => {
+        return talkList.reduce((result, talk) => {
             
             Object.keys(MATCH_NAME).map((key, i) => {
               const matchNameList = talk.Message.match(MATCH_NAME[key])
@@ -116,9 +124,7 @@
 
               result[key] = (result[key] || 0) + length
             })
-
-
-            // result[talk] = ++result[talk] || 1 
+       
             return result 
           }, {})
       }
@@ -144,18 +150,15 @@
       
 
       // 시작
-      // const depthScale = d3.scaleOrdinal(d3.schemeCategory10) // ordinal : 서수
-      const colorScale = d3.scaleSequential(d3.interpolateRainbow).domain([0,16]);
-      // const colorScale = d3.scaleOrdinal(d3.interpolateViridis)
-      const wordG = d3.select('svg').append('g')
-                        .attr('id', 'cloudG')
-                        .attr('transform', `translate(${width/2},${height/2})`)
-      const DEFAULT_NAME = FT1_TEAM.merlin
-
       d3.csv("FT1Team.csv", data => data).then(arrData => {
         const resultData = makeCloudData(arrData, DEFAULT_NAME)
+
+        const colorScale = d3.scaleSequential(d3.interpolateRainbow).domain([0,16]);
+        const wordG = d3.select('svg').append('g')
+                        .attr('id', 'cloudG')
+                        .attr('transform', `translate(${width/2},${height/2})`)
         
-        // console.log('resultData',resultData)
+        
         // 버튼의 생성
         d3.select('#controls').selectAll('button')
           .data(Object.keys(FT1_TEAM)).enter()
@@ -169,7 +172,7 @@
 
 
       function cloud (talkDataList) {
-        console.log('talkDataList', talkDataList)
+        // console.log('talkDataList', talkDataList)
         const domainRange = d3.extent(talkDataList, function(d) {return d.frequency});
         const wordScale = d3.scaleLinear()
               .domain(domainRange)
@@ -180,7 +183,10 @@
         const randomRotate = d3.scaleLinear()
                               .domain([0,1])
                               .range([20, -20])
-
+        
+        /*
+        * 기준 데이터에 레이아웃 데이터를 더한다.
+        */                              
         d3.layout.cloud()
           // words 메서드로 클라우드 레이아웃에 데이터를 전달한다.
           .words(talkDataList)
@@ -198,25 +204,28 @@
 
       
 
+      /*
+      * words 로 들어오는 layout data
+      */
       function draw(words) {
-        console.log('words', words)
+        // console.log('words', words)
         const cloudWord = wordG.selectAll('text')
                           .data(words, d => d.text)
         
+        // Adding words 
         cloudWord.enter()
           .append('text')
           .transition()
           .duration(600)
           .style("font-family", "Impact")
           .style('opacity', 0.75)
-          // .style("fill", d => depthScale(d.size))
           .style('fill', (d,i) => colorScale(i))
           .style('font-size', d => `${d.size}px`)
           .attr("text-anchor", "middle")
           .attr('transform', d => `translate(${d.x}, ${d.y}) rotate(${d.rotate})`)
           .text(d => d.text)
         
-        console.log('cloudWord', cloudWord)
+        // console.log('cloudWord', cloudWord)
 
         cloudWord.transition()
           .duration(600)
@@ -235,6 +244,9 @@
             .remove();  
       }
 
+      /*
+      * 상호작용 추가
+      */
       function clickNameBtn(arrData) {
         return function(name) {
           const resultData = makeCloudData(arrData, FT1_TEAM[name])
