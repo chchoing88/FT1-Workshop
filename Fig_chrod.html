@@ -1,0 +1,272 @@
+<html>
+  <head>
+    <title>누가누가 나를 많이 찾았을까요?</title>
+    <meta charset="utf-8" />
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="http://colorbrewer2.org/export/colorbrewer.js"></script>
+  </head>
+  <style>
+    svg#wrapChord {
+      height: 1000px;
+      width: 1000px;
+      /* border: 1px solid gray; */
+      margin-top:30px;
+    }
+    button {
+      color: #fff;
+      background-color: #3f51b5;
+    }
+    
+  </style>
+  <body>
+    <h1>누가누가 나를 많이 찾았을까요?</h1>
+    <div id="viz">
+      <svg id="wrapChord"></svg>
+    </div>
+
+  <script>
+      const width = 964
+      const height = 964
+      const outerRadius = Math.min(width, height) * 0.5
+      const innerRadius = outerRadius - 124
+
+      const FT1_TEAM = {
+        merlin: '최호철_멀린',
+        hue: '정현석_hue',
+        kerry: 'kerry 유보',
+        levi: '서주희_Levi',
+        rich: 'Rich.진경',
+        lukas: '루카스',
+        sharry: '홍효선 Sharry',
+        shawn: '시원 션 이',
+        justin: '구본국 Justin',
+        elsa: '고연주_Elsa',
+        nathalie: '오민영_Nathalie',
+        renee: '박은혜 renee',
+        rody: '보람',
+        carlos: '양명수',
+        summer: '윤썸_Summer',
+        mason: '진훈_Mason'
+      }
+
+      
+      const REG_MERLIN = /멀린|몰린|멀더린|몰링|머얼린|멀링|호철이|멀버린|호철/g
+      const REG_HUE = /(?<!어)휴(?!가|일)|현석/g
+      const REG_KERRY = /케리|캐리|캐리린|캐리링|보현/g
+      const REG_LEVI = /레비|레비린|레비링|주희/g
+      const REG_RICH = /리치|몬드|리치몬드|본드|모리|진경/g
+      const REG_LUKAS = /루카스|카스|루스|룩스|용주/g
+      const REG_SHARRY = /샤리|효선/g
+      const REG_SHAWN = /션|더꿀|션더꿀|시원/g
+      const REG_JUSTIN = /저스틴|본국/g
+      const REG_ELSA = /엘사|연주/g
+      const REG_NATHALIE = /나탈리|민영/g
+      const REG_RENEE = /르네|은혜/g
+      const REG_RODY = /로디|떠피|로뒤|보래미|보람/g
+      const REG_CARLOS = /카를로스|칼롯|칼로스|깔롯|깔로스|명수/g
+      const REG_SUMMER = /썸머|선미/g
+      const REG_MASON = /메이슨|진훈/g
+
+      const MATCH_NAME = {
+        merlin : REG_MERLIN,
+        hue: REG_HUE,
+        kerry: REG_KERRY,
+        levi: REG_LEVI,
+        rich: REG_RICH,
+        lukas: REG_LUKAS,
+        sharry: REG_SHARRY,
+        shawn: REG_SHAWN,
+        justin: REG_JUSTIN,
+        elsa: REG_ELSA,
+        nathalie: REG_NATHALIE,
+        renee: REG_RENEE,
+        rody: REG_RODY,
+        carlos: REG_CARLOS,
+        summer: REG_SUMMER,
+        mason: REG_MASON
+      }
+      
+
+      // 내 대화 내용 제거
+      function filterExceptUser(talkList, user) {
+        return talkList.filter(talk => talk.User !== FT1_TEAM[user])
+      }
+
+      // 내용에 내 이름이 있는 대화 추리자.
+      function filterNotNameTalk(talkList, user) {
+        return talkList.filter(talk => {
+            return talk.Message.match(MATCH_NAME[user])
+        })
+      }
+
+      // user 별로 count 하자.
+      function sortByUser(talkList) {
+        console.log('talkList', talkList)
+         return talkList.reduce((result, talk) => {
+            
+            Object.keys(FT1_TEAM).map((key, i) => {
+              const matchUserList = talk.User.match(FT1_TEAM[key])
+              const length = matchUserList? matchUserList.length : 0
+
+              result[key] = (result[key] || 0) + length
+            })
+            return result 
+          }, {})
+      }
+
+      function objectToArray(userCountData) {
+        return Object.keys(userCountData).map(name => {
+          return {
+            text: name,
+            frequency: userCountData[name]
+          }
+        })
+      }
+
+      function makeCloudData (dataList , user) {
+        return objectToArray(
+          sortByUser(
+            filterNotNameTalk(
+              filterExceptUser(dataList, user), user
+            )
+          )
+        )
+      }
+
+      // 시작
+      
+      const color = d3.scaleSequential(d3.interpolateRainbow).domain([0,16]);
+      // const color = d3.scaleOrdinal(d3.schemeCategory10)  
+      const formatValue = d3.formatPrefix(",.0", 1)
+      function groupTicks(d, step) {
+        const k = (d.endAngle - d.startAngle) / d.value;
+        return d3.range(0, d.value, step).map(value => {
+          return {value: value, angle: value * k + d.startAngle};
+        });
+      }
+      const svg = d3.select('svg').append('g').attr('id', 'chordG')
+                          .attr('transform', `translate(${width/2},${height/2})`)
+
+      
+     
+                
+
+      d3.csv("FT1Team.csv", data => data).then(arrData => {
+        
+        const matrix = Object.keys(MATCH_NAME).map(name => {
+          return makeCloudData(arrData, name).map(data => data.frequency)
+        })
+
+        const nameByIndex = Object.keys(MATCH_NAME).reduce((result, name, index) => {
+          return result[index] = name, result
+        }, {})
+
+        const indexByName = Object.keys(MATCH_NAME).reduce((result, name, index) => {
+          return result[name] = index, result
+        }, {})
+        
+        const talkData = {
+          matrix,
+          nameByIndex,
+          indexByName,
+        }
+
+        // console.log('talkData', talkData)
+
+        const chord = d3.chord()
+                        .padAngle(.04)
+                        .sortSubgroups(d3.descending)
+                        .sortChords(d3.descending)
+        const chords = chord(talkData.matrix)
+
+        const arc = d3.arc()
+                      .innerRadius(innerRadius)
+                      .outerRadius(innerRadius + 20)
+
+        const ribbon = d3.ribbon()
+                         .radius(innerRadius)
+
+        // console.log('chords', chords)
+        ///////////////
+
+        function onMouseOver(selected) {
+          group      
+            .filter( d => d.index !== selected.index)
+            .style("opacity", 0.3);
+          
+          svg.selectAll(".chord")
+            .filter( d => d.source.index !== selected.index)
+            .style("opacity", 0.3);
+        }
+          
+        function onMouseOut() {
+          group.style("opacity", 1);
+          svg.selectAll(".chord")
+            .style("opacity", 1);
+        }    
+
+        // 원호 
+        const group = svg.append("g")
+                        .selectAll("g")
+                        .data(chords.groups)
+                        .enter().append("g");
+
+        group.append("path")
+              .attr("fill", d => color(d.index))
+              .attr("stroke", d => color(d.index))
+              .attr("d", arc)
+              .on("mouseover", onMouseOver)
+              .on("mouseout", onMouseOut);
+
+        group.append("text")
+              .each(d => { d.angle = (d.startAngle + d.endAngle) / 2; })
+              .attr("dy", ".35em")
+              .attr("transform", d => `
+                rotate(${(d.angle * 180 / Math.PI - 90)})
+                translate(${innerRadius + 70})
+                ${d.angle > Math.PI ? "rotate(180)" : ""}
+              `)
+              .attr("text-anchor", d => d.angle > Math.PI ? "end" : null)
+              .text(d => talkData.nameByIndex[d.index]);
+
+        
+        // 눈금
+        const groupTick = group.append("g")
+                               .selectAll("g")
+                               .data(d => groupTicks(d, 1))
+                               .join("g")
+                               .attr("transform", d => `rotate(${d.angle * 180 / Math.PI - 90}) translate(${innerRadius + 26},0)`);
+        
+        groupTick.filter(d => d.value % 50 === 0)
+                 .append("line")
+                 .attr("stroke", "black")
+                 .attr("x2", 6);
+       
+        groupTick.filter(d => d.value % 50 === 0)
+                .append("text")
+                .attr("x", 8)
+                .attr("dy", ".35em")
+                .attr("transform", d => d.angle > Math.PI ? "rotate(180) translate(-16)" : null)
+                .attr("text-anchor", d => d.angle > Math.PI ? "end" : null)
+                .text(d => formatValue(d.value));
+        // 리본
+        svg.append("g")
+            .selectAll("path")
+            .data(chords)
+            .enter().append("path")
+            .attr("class", "chord")
+            .attr("fill-opacity", d => d.source.value/10)
+            .attr("stroke", d => d3.rgb(color(d.source.index)).darker())
+            .attr("fill", d => color(d.source.index))
+            .attr("d", ribbon)
+            .on("mouseover", d => onMouseOver(d.source))
+            .on("mouseout", d => onMouseOut(d.source));
+
+      })
+           
+
+      
+      
+    </script>
+  </body>
+</html>
