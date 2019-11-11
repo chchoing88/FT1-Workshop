@@ -1,0 +1,263 @@
+<html>
+  <head>
+    <title>나는 누구를 많이 찾았을까요?</title>
+    <meta charset="utf-8" />
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-cloud/1.2.5/d3.layout.cloud.js"></script>
+  </head>
+  <style>
+    svg#wrapCloud {
+      height: 1000px;
+      width: 1000px;
+      /* border: 1px solid gray; */
+    }
+    button {
+      color: #fff;
+      background-color: #3f51b5;
+      padding:10px;
+      font-size:20px;
+    }
+    
+  </style>
+  <body>
+    <h1>나는 누구를 많이 찾았을까요?</h1>
+    <div id="controls"></div>
+    <div id="viz">
+      <svg id="wrapCloud"></svg>
+      
+    </div>
+    
+
+    
+    <script>
+      const width = 1000
+      const height = 1000
+
+      /*
+      **  상수 설정 
+      */
+
+      const FT1_TEAM = {
+        hue: '정현석_hue',
+        kerry: 'kerry 유보',
+        levi: '서주희_Levi',
+        rich: 'Rich.진경',
+        lukas: '루카스',
+        sharry: '홍효선 Sharry',
+        shawn: '시원 션 이',
+        justin: '구본국 Justin',
+        merlin: '최호철_멀린',
+        elsa: '고연주_Elsa',
+        nathalie: '오민영_Nathalie',
+        renee: '박은혜 renee',
+        rody: '보람',
+        carlos: '양명수',
+        summer: '윤썸_Summer',
+        mason: '진훈_Mason'
+      }
+
+      
+      const REG_MERLIN = /멀린|몰린|멀더린|몰링|머얼린|멀링|호철이|멀버린|호철/g
+      const REG_HUE = /(?<!어)휴(?!가|일)|현석/g
+      const REG_KERRY = /케리|캐리|캐리린|캐리링|보현/g
+      const REG_LEVI = /레비|레비린|레비링|주희/g
+      const REG_RICH = /리치|몬드|리치몬드|본드|모리|진경/g
+      const REG_LUKAS = /루카스|카스|루스|룩스|용주/g
+      const REG_SHARRY = /샤리|효선/g
+      const REG_SHAWN = /션|더꿀|션더꿀|시원/g
+      const REG_JUSTIN = /저스틴|본국/g
+      const REG_ELSA = /엘사|연주/g
+      const REG_NATHALIE = /나탈리|민영/g
+      const REG_RENEE = /르네|은혜/g
+      const REG_RODY = /로디|떠피|로뒤|보래미|보람/g
+      const REG_CARLOS = /카를로스|칼롯|칼로스|깔롯|깔로스|명수/g
+      const REG_SUMMER = /썸머|선미/g
+      const REG_MASON = /메이슨|진훈/g
+
+      const MATCH_NAME = {
+        merlin : REG_MERLIN,
+        hue: REG_HUE,
+        kerry: REG_KERRY,
+        levi: REG_LEVI,
+        rich: REG_RICH,
+        lukas: REG_LUKAS,
+        sharry: REG_SHARRY,
+        shawn: REG_SHAWN,
+        justin: REG_JUSTIN,
+        elsa: REG_ELSA,
+        nathalie: REG_NATHALIE,
+        renee: REG_RENEE,
+        rody: REG_RODY,
+        carlos: REG_CARLOS,
+        summer: REG_SUMMER,
+        mason: REG_MASON
+      }
+      const DEFAULT_NAME = FT1_TEAM.merlin
+      
+
+      /*
+      ** Data 가공 Helper 함수들
+      */
+      
+      // 특정 user 의 톡 내용만 찾기
+      function findUserTalk(talkList, user) {
+        return talkList.filter(talk => talk.User === user)
+      }
+
+      // talk에서 이름이 거론되지 않는것들을 거른다. 
+      function filterNotNameTalk(talkList) {
+        return talkList.filter(talk => {
+
+          return Object.keys(MATCH_NAME).some((key) => {
+            return talk.Message.match(MATCH_NAME[key])
+          })
+        })
+      }
+
+      // 이름 별로 count를 증가 시켜줄 수만 있다면...
+      function sortByName(talkList) {
+        return talkList.reduce((result, talk) => {
+            
+            Object.keys(MATCH_NAME).map((key, i) => {
+              const matchNameList = talk.Message.match(MATCH_NAME[key])
+              const length = matchNameList? matchNameList.length : 0
+
+              result[key] = (result[key] || 0) + length
+            })
+       
+            return result 
+          }, {})
+      }
+
+      function objectToArray(nameCountData) {
+        return Object.keys(nameCountData).map(name => {
+          return {
+            text: name,
+            frequency: nameCountData[name]
+          }
+        })
+      }
+
+      function makeCloudData (dataList , user) {
+        return objectToArray(
+          sortByName( // 이름별로 추리는작업 
+            filterNotNameTalk( // 내용에서 user 없는거 거르고
+              findUserTalk(dataList, user) // user 거르고
+            )
+          )
+        )
+      }
+      
+
+      // 시작
+      d3.csv("FT1Team.csv", data => data).then(arrData => {
+        const resultData = makeCloudData(arrData, DEFAULT_NAME)
+
+        const colorScale = d3.scaleSequential(d3.interpolateRainbow).domain([0,16]);
+        const wordG = d3.select('svg').append('g')
+                        .attr('id', 'cloudG')
+                        .attr('transform', `translate(${width/2},${height/2})`)
+        
+        
+        // 버튼의 생성
+        d3.select('#controls').selectAll('button')
+          .data(Object.keys(FT1_TEAM)).enter()
+          .append('button')
+          .on('click', clickNameBtn(arrData)) // on 메서드는 바인딩 된 데이터를 함수에 자동으로 전달한다. 
+          .html(d => d)
+
+
+        cloud(resultData)
+      })
+
+
+      function cloud (talkDataList) {
+        // console.log('talkDataList', talkDataList)
+        const domainRange = d3.extent(talkDataList, function(d) {return d.frequency});
+        const wordScale = d3.scaleLinear()
+              .domain(domainRange)
+              .range([50, 220]);
+        
+        // 이 스케일은 0부터 1 사이에서 임의의 값을 가져와 
+        // -20도에서 20도 사이의 각을 반환한다.
+        const randomRotate = d3.scaleLinear()
+                              .domain([0,1])
+                              .range([20, -20])
+        
+        /*
+        * 기준 데이터에 레이아웃 데이터를 더한다.
+        */                              
+        d3.layout.cloud()
+          // words 메서드로 클라우드 레이아웃에 데이터를 전달한다.
+          .words(talkDataList)
+          .size([width, height])
+          .font("Impact")
+          .fontSize(d => wordScale(d.frequency))
+          .rotate(0)
+          .padding(1)
+          .spiral('archimedean') //rectangular
+          .on('end', draw)
+          // 클라우드 레이아웃을 초기화해야 한다.
+          // 초기화를 완료하면 end 이벤트가 발생하고 이 이벤트에 연결된 함수를 실행한다.
+          .start()
+      }
+
+      
+
+      /*
+      * words 로 들어오는 layout data
+      */
+      function draw(words) {
+        // console.log('words', words)
+        const cloudWord = wordG.selectAll('text')
+                          .data(words, d => d.text)
+        
+        // Adding words 
+        cloudWord.enter()
+          .append('text')
+          .transition()
+          .duration(600)
+          .style("font-family", "Impact")
+          .style('opacity', 0.75)
+          .style('fill', (d,i) => colorScale(i))
+          .style('font-size', d => `${d.size}px`)
+          .attr("text-anchor", "middle")
+          .attr('transform', d => `translate(${d.x}, ${d.y}) rotate(${d.rotate})`)
+          .text(d => d.text)
+        
+        // console.log('cloudWord', cloudWord)
+
+        cloudWord.transition()
+          .duration(600)
+          // 클라우드 레이아웃이 변환과 회전을 계산한다.
+          .attr('transform', d => `translate(${d.x}, ${d.y}) rotate(${d.rotate})`)
+          .style('font-size', d => `${d.size}px`)
+          .text(d => d.text)
+          
+
+        //Exiting words
+        cloudWord.exit()
+            .transition()
+            .duration(200)
+            .style('opacity', 0)
+            .attr('font-size', '1px')
+            .remove();  
+      }
+
+      /*
+      * 상호작용 추가
+      */
+      function clickNameBtn(arrData) {
+        return function(name) {
+          const resultData = makeCloudData(arrData, FT1_TEAM[name])
+          cloud(resultData)
+        }
+        
+      }
+
+
+      
+      
+    </script>
+  </body>
+</html>
